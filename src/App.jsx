@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const API_BASE = "http://localhost:4000";
+const API_BASE = "";
 
 // ─── authFetch ────────────────────────────────────────────────────────────────
 async function authFetch(url, options = {}) {
@@ -113,7 +113,7 @@ function ResultsPanel({ data }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [query, setQuery] = useState("");
-  const [useMock, setUseMock] = useState(true);
+  const [useMock, setUseMock] = useState(false);
 
   const apiFn = useCallback(async ({ signal, args: [query] }) => {
 
@@ -146,7 +146,7 @@ export default function App() {
     }
 
     // REAL API (future)
-    const res = await authFetch(`${API_BASE}/api/ai-search`, {
+    const res = await authFetch(`/api/ai-search`, {
       method: "POST",
       body: JSON.stringify({ query }),
       signal,
