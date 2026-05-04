@@ -1,47 +1,5 @@
-// ─── SIMPLE IN-MEMORY STORE (for demo SaaS) ─────────────
-// ⚠️ In production, replace with database (MongoDB, Supabase)
-const usageStore = {}; // { userId: { count, lastReset, plan } }
-
-const FREE_LIMIT = 10;     // free users per minute
-const PRO_LIMIT = 100;     // paid users per minute
-
-function getUserId(req) {
-  // simple user identity (replace with auth later)
-  return req.headers["x-user-id"] || req.socket.remoteAddress;
-}
-
-function getUserData(userId) {
-  if (!usageStore[userId]) {
-    usageStore[userId] = {
-      count: 0,
-      lastReset: Date.now(),
-      plan: "free" // change to "pro" for paid users
-    };
-  }
-  return usageStore[userId];
-}
-
-function checkLimit(user) {
-  const now = Date.now();
-
-  // reset every 60 seconds
-  if (now - user.lastReset > 60000) {
-    user.count = 0;
-    user.lastReset = now;
-  }
-
-  const limit = user.plan === "pro" ? PRO_LIMIT : FREE_LIMIT;
-
-  if (user.count >= limit) {
-    return false;
-  }
-
-  user.count++;
-  return true;
-}
-
 module.exports = async function handler(req, res) {
-  // ─── CORS ─────────────────────────────────────────────
+  // ─── CORS ─────────────────────────
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-user-id");
@@ -55,25 +13,19 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const userId = getUserId(req);
-    const user = getUserData(userId);
-
-    // ─── USAGE LIMIT CHECK ───────────────────────────────
-    if (!checkLimit(user)) {
-      return res.status(429).json({
-        error: "Rate limit exceeded",
-        plan: user.plan,
-        upgrade: "Upgrade to PRO for higher limits"
-      });
-    }
-
     const { query } = req.body || {};
 
     if (!query) {
       return res.status(400).json({ error: "Query required" });
     }
 
-    // ─── AI PROMPT ──────────────────────────────────────
+    // ✅ CHECK API KEY
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({
+        error: "Missing OPENAI_API_KEY"
+      });
+    }
+
     const prompt = `
 You are an expert global sourcing consultant.
 
@@ -88,17 +40,12 @@ Return ONLY valid JSON:
   "riskLevel": "",
   "suggestedCountry": "",
   "suppliers": [
-    {
-      "name": "",
-      "location": "",
-      "description": ""
-    }
+    { "name": "", "location": "", "description": "" }
   ],
   "tips": []
 }
 `;
 
-    // ─── OPENAI CALL ────────────────────────────────────
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -117,9 +64,10 @@ Return ONLY valid JSON:
 
     const aiData = await aiRes.json();
 
+    // 🔥 RETURN REAL ERROR FROM OPENAI
     if (!aiRes.ok) {
       return res.status(500).json({
-        error: "AI API failed",
+        error: "AI API Failed",
         details: aiData
       });
     }
@@ -131,26 +79,16 @@ Return ONLY valid JSON:
       parsed = JSON.parse(raw);
     } catch {
       return res.status(500).json({
-        error: "Invalid AI response",
+        error: "Invalid AI JSON",
         raw
       });
     }
 
-    // ─── ADD USAGE INFO TO RESPONSE ─────────────────────
-    const limit = user.plan === "pro" ? PRO_LIMIT : FREE_LIMIT;
-
-    return res.status(200).json({
-      ...parsed,
-      usage: {
-        plan: user.plan,
-        remaining: Math.max(0, limit - user.count),
-        limit
-      }
-    });
+    return res.status(200).json(parsed);
 
   } catch (err) {
     return res.status(500).json({
-      error: "Server error",
+      error: "Server crash",
       details: err.message
     });
   }
