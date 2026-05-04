@@ -1,106 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_BASE = "";
+
+async function fetchAI(query) {
+  const res = await fetch(`${API_BASE}/api/ai-search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": "free-user"
+    },
+    body: JSON.stringify({ query })
+  });
+
+  return res.json();
+}
 
 export default function App() {
   const [query, setQuery] = useState("");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [usage, setUsage] = useState(0);
 
-  const [usage, setUsage] = useState(() => {
-    return Number(localStorage.getItem("usage") || 0);
-  });
-
-  const LIMIT = 5;
-
-  const search = async () => {
+  const handleSearch = async () => {
     if (!query) return;
 
-    if (usage >= LIMIT) {
-      alert("🚫 Free limit reached. Upgrade to PRO.");
-      return;
-    }
-
     setLoading(true);
+    setData(null);
 
     try {
-      const res = await fetch("/api/ai-search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query }),
-      });
+      const res = await fetchAI(query);
 
-      let json;
-
-      try {
-        json = await res.json();
-      } catch {
-        json = null;
+      if (res.error) {
+        alert(res.error);
+      } else {
+        setData(res);
+        setUsage(res.usage?.used || usage + 1);
       }
-
-      // 🔥 FALLBACK FAKE AI (ALWAYS WORKS)
-      if (!json || json.error) {
-        const q = query.toLowerCase();
-
-        json = {
-          suggestedCountry: q.includes("china")
-            ? "China"
-            : q.includes("india")
-            ? "India"
-            : ["Vietnam", "Turkey", "Bangladesh"][
-                Math.floor(Math.random() * 3)
-              ],
-
-          summary: `AI analysis suggests "${query}" sourcing has strong global supplier availability with competitive pricing and scalable production.`,
-
-          bestSupplierType: q.includes("electronics")
-            ? "OEM Manufacturer"
-            : q.includes("clothing")
-            ? "Textile Exporter"
-            : "Global Supplier",
-
-          estimatedPriceRange: `$${Math.floor(Math.random() * 5) + 2}–$${
-            Math.floor(Math.random() * 10) + 8
-          }/unit`,
-
-          riskLevel: ["Low", "Medium", "High"][
-            Math.floor(Math.random() * 3)
-          ],
-
-          suppliers: [
-            {
-              name: "Global Source Ltd",
-              location: "China",
-              description:
-                "High-volume manufacturer with export-grade production.",
-            },
-            {
-              name: "Prime Industrial Co",
-              location: "Vietnam",
-              description:
-                "Reliable supplier with competitive international pricing.",
-            },
-            {
-              name: "Elite Manufacturing Group",
-              location: "Turkey",
-              description:
-                "Premium supplier focused on quality and fast delivery.",
-            },
-          ],
-
-          tips: [
-            "Verify supplier certifications",
-            "Request product samples",
-            "Negotiate bulk pricing",
-          ],
-        };
-      }
-
-      setData(json);
-
-      const newUsage = usage + 1;
-      setUsage(newUsage);
-      localStorage.setItem("usage", newUsage);
     } catch (err) {
       alert("Something went wrong");
     }
@@ -109,80 +44,99 @@ export default function App() {
   };
 
   return (
-    <div style={{ padding: 40, fontFamily: "Arial", maxWidth: 900, margin: "auto" }}>
-      <h1 style={{ fontSize: 32 }}>🌍 Global Sourcing AI</h1>
+    <div style={{
+      fontFamily: "Arial",
+      padding: 40,
+      background: "#f5f7fb",
+      minHeight: "100vh"
+    }}>
+      
+      {/* HEADER */}
+      <h1 style={{ fontSize: 32, marginBottom: 10 }}>
+        🌍 Global Sourcing AI
+      </h1>
 
-      <div style={{ marginBottom: 20 }}>
-        <b>Free Plan:</b> {usage}/{LIMIT} searches used
+      <p style={{ color: "#555" }}>
+        Free Plan: {usage}/5 searches used
+      </p>
+
+      {/* SEARCH BOX */}
+      <div style={{
+        display: "flex",
+        gap: 10,
+        marginTop: 20
+      }}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="e.g. china electronics suppliers"
+          style={{
+            flex: 1,
+            padding: 12,
+            borderRadius: 8,
+            border: "1px solid #ccc"
+          }}
+        />
+
+        <button
+          onClick={handleSearch}
+          style={{
+            padding: "12px 20px",
+            borderRadius: 8,
+            border: "none",
+            background: "#0070f3",
+            color: "#fff",
+            cursor: "pointer"
+          }}
+        >
+          Search
+        </button>
       </div>
 
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search suppliers (e.g. china electronics)"
-        style={{
-          width: "100%",
-          padding: 12,
-          fontSize: 16,
-          borderRadius: 6,
-          border: "1px solid #ccc",
-        }}
-      />
-
-      <br /><br />
-
-      <button
-        onClick={search}
-        style={{
-          padding: "10px 20px",
-          fontSize: 16,
-          borderRadius: 6,
-          background: "black",
-          color: "white",
-          cursor: "pointer",
-        }}
-      >
-        Search
-      </button>
-
-      {loading && <p>Loading...</p>}
+      {/* LOADING */}
+      {loading && (
+        <p style={{ marginTop: 20 }}>🔄 Analyzing suppliers...</p>
+      )}
 
       {/* RESULTS */}
       {data && (
-        <div style={{ marginTop: 40 }}>
+        <div style={{
+          marginTop: 30,
+          background: "#fff",
+          padding: 20,
+          borderRadius: 12,
+          boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
+        }}>
           <h2>{data.suggestedCountry}</h2>
-          <p>{data.summary}</p>
 
-          <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
+          <p style={{ marginTop: 10 }}>
+            {data.summary}
+          </p>
+
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+            marginTop: 20
+          }}>
             <div><b>Type:</b> {data.bestSupplierType}</div>
             <div><b>Price:</b> {data.estimatedPriceRange}</div>
             <div><b>Risk:</b> {data.riskLevel}</div>
           </div>
 
-          <h3 style={{ marginTop: 30 }}>🏭 Suppliers</h3>
-
-          {data.suppliers.map((s, i) => (
-            <div
-              key={i}
-              style={{
-                border: "1px solid #ddd",
-                padding: 15,
-                borderRadius: 8,
-                marginBottom: 10,
-                background: "#fafafa",
-              }}
-            >
-              <b>{s.name}</b> — {s.location}
-              <p style={{ marginTop: 5 }}>{s.description}</p>
-            </div>
-          ))}
-
-          <h3 style={{ marginTop: 30 }}>💡 Tips</h3>
-          <ul>
-            {data.tips.map((t, i) => (
-              <li key={i}>{t}</li>
-            ))}
-          </ul>
+          {/* SUPPLIERS */}
+          <div style={{ marginTop: 20 }}>
+            <h3>Suppliers</h3>
+            <ul>
+              {data.suppliers?.map((s, i) => (
+                <li key={i}>
+                  <b>{s.name}</b> — {s.country}
+                  <br />
+                  <small>{s.description}</small>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
     </div>
