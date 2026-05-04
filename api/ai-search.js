@@ -33,3 +33,6 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Server error" });
   }
 }
+if (req.method === "GET") {
+  return res.status(200).json({ message: "API is working" });
+}
