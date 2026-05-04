@@ -1,3 +1,32 @@
+// ─── Simple in-memory rate limiter ─────────────────────────────
+const RATE_LIMIT = 20; // requests
+const WINDOW_MS = 60 * 1000; // 1 minute
+
+const store = new Map();
+
+function rateLimit(ip) {
+  const now = Date.now();
+
+  if (!store.has(ip)) {
+    store.set(ip, { count: 1, start: now });
+    return { allowed: true, remaining: RATE_LIMIT - 1 };
+  }
+
+  const entry = store.get(ip);
+
+  if (now - entry.start > WINDOW_MS) {
+    // reset window
+    store.set(ip, { count: 1, start: now });
+    return { allowed: true, remaining: RATE_LIMIT - 1 };
+  }
+
+  if (entry.count >= RATE_LIMIT) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT - entry.count };
+}
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
