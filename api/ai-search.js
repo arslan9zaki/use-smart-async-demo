@@ -28,6 +28,17 @@ function rateLimit(ip) {
   return { allowed: true, remaining: RATE_LIMIT - entry.count };
 }
 export default async function handler(req, res) {
+  const ip = req.headers["x-forwarded-for"] || "unknown";
+
+const limit = rateLimit(ip);
+
+if (!limit.allowed) {
+ res.setHeader("X-RateLimit-Limit", RATE_LIMIT);
+res.setHeader("X-RateLimit-Remaining", limit.remaining);
+return res.status(200).json(data);
+    error: "Rate limit exceeded. Try again later.",
+  });
+}
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
